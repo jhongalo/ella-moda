@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ella Moda - Provador Virtual com IA</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; background:#fafafa; color:#1a1a1a; }
+
+        .api-setup { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.93); z-index:9999; display:flex; align-items:center; justify-content:center; }
+        .api-setup.hidden { display:none; }
+        .api-box { background:white; padding:40px; border-radius:16px; max-width:460px; width:90%; text-align:center; }
+        .api-box h2 { font-size:22px; font-weight:400; margin-bottom:10px; }
+        .api-box p { color:#666; font-size:14px; margin-bottom:22px; line-height:1.6; }
+        .api-input { width:100%; border:2px solid #ddd; border-radius:8px; padding:13px; font-size:14px; margin-bottom:14px; font-family:monospace; }
+        .api-input:focus { outline:none; border-color:#C9A96E; }
+        .api-note { font-size:12px; color:#999; margin-top:12px; }
+        .api-note a { color:#C9A96E; }
+
+        .top-bar { background:#C9A96E; color:white; text-align:center; padding:9px; font-size:14px; font-weight:500; }
+        .main-header { background:white; padding:16px 5%; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 12px rgba(0,0,0,0.06); position:sticky; top:0; z-index:100; }
+        .logo { font-size:26px; font-weight:300; letter-spacing:3px; }
+        .logo span { color:#C9A96E; font-weight:700; }
+        .nav-menu { display:flex; gap:28px; list-style:none; }
+        .nav-menu a { text-decoration:none; color:#333; font-size:13px; text-transform:uppercase; letter-spacing:1.5px; transition:color 0.3s; }
+        .nav-menu a:hover { color:#C9A96E; }
+        .header-icons { display:flex; gap:20px; align-items:center; }
+        .icon-btn { background:none; border:none; cursor:pointer; font-size:20px; position:relative; color:#333; padding:4px; }
+        .cart-count { position:absolute; top:-6px; right:-6px; background:#C9A96E; color:white; border-radius:50%; width:18px; height:18px; font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:700; }
+
+        .hero { background:linear-gradient(rgba(0,0,0,0.38),rgba(0,0,0,0.38)),url('https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1920') center/cover; height:88vh; display:flex; align-items:center; justify-content:center; text-align:center; color:white; }
+        .hero h1 { font-size:56px; font-weight:200; margin-bottom:18px; letter-spacing:3px; line-height:1.2; }
+        .hero p { font-size:19px; margin-bottom:34px; opacity:0.88; }
+        .btn-primary { background:#C9A96E; color:white; border:none; padding:15px 42px; font-size:14px; cursor:pointer; text-transform:uppercase; letter-spacing:2px; transition:all 0.3s; display:inline-flex; align-items:center; gap:10px; border-radius:2px; }
+        .btn-primary:hover { background:#b8985d; transform:translateY(-2px); box-shadow:0 12px 32px rgba(201,169,110,0.35); }
+
+        .products-section { padding:90px 5%; max-width:1400px; margin:0 auto; }
+        .section-title { text-align:center; font-size:34px; font-weight:200; margin-bottom:55px; letter-spacing:3px; }
+        .products-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:28px; }
+        .product-card { background:white; border-radius:6px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,0.07); transition:transform 0.3s,box-shadow 0.3s; }
+        .product-card:hover { transform:translateY(-6px); box-shadow:0 16px 42px rgba(0,0,0,0.13); }
+        .product-image { width:100%; height:340px; object-fit:cover; display:block; }
+        .product-info { padding:20px; }
+        .product-name { font-size:15px; margin-bottom:8px; color:#222; }
+        .product-price { font-size:19px; color:#C9A96E; font-weight:700; margin-bottom:16px; }
+        .product-buttons { display:flex; gap:10px; }
+        .btn-cart { flex:1; background:#1a1a1a; color:white; border:none; padding:12px; cursor:pointer; font-size:12px; text-transform:uppercase; letter-spacing:1px; transition:background 0.3s; border-radius:3px; }
+        .btn-cart:hover { background:#333; }
+        .btn-tryon { flex:1; background:transparent; color:#C9A96E; border:2px solid #C9A96E; padding:10px; cursor:pointer; font-size:12px; text-transform:uppercase; letter-spacing:1px; transition:all 0.3s; display:flex; align-items:center; justify-content:center; gap:5px; border-radius:3px; }
+        .btn-tryon:hover { background:#C9A96E; color:white; }
+
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.82); z-index:1000; justify-content:center; align-items:center; backdrop-filter:blur(6px); }
+        .modal-overlay.active { display:flex; }
+        .modal-content { background:white; width:92%; max-width:960px; max-height:92vh; border-radius:14px; overflow:hidden; animation:modalIn 0.4s ease; display:flex; flex-direction:column; }
+        @keyframes modalIn { from{opacity:0;transform:translateY(40px) scale(0.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+        .modal-header { background:#1a1a1a; color:white; padding:20px 28px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        .modal-header h2 { font-weight:300; letter-spacing:1px; font-size:18px; }
+        .btn-close { background:none; border:none; color:white; font-size:26px; cursor:pointer; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition:background 0.3s; }
+        .btn-close:hover { background:rgba(255,255,255,0.12); }
+        .modal-body { padding:28px; overflow-y:auto; flex:1; }
+        .vto-grid { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
+        @media(max-width:700px){ .vto-grid{grid-template-columns:1fr} }
+
+        .vto-step { display:none; }
+        .vto-step.active { display:block; animation:fadeIn 0.4s ease; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        .step-title { font-size:16px; margin-bottom:16px; color:#222; display:flex; align-items:center; gap:10px; font-weight:500; }
+        .step-num { background:#C9A96E; color:white; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex-shrink:0; }
+
+        .upload-zone { border:2px dashed #ddd; border-radius:10px; padding:30px 20px; text-align:center; cursor:pointer; transition:all 0.3s; background:#fafafa; min-height:150px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        .upload-zone:hover { border-color:#C9A96E; background:#fffbf5; }
+        .upload-zone.filled { border-color:#C9A96E; background:#fffbf5; padding:10px; }
+        .upload-preview { max-width:100%; max-height:180px; border-radius:8px; object-fit:contain; display:none; }
+        .upload-preview.show { display:block; }
+        #fileInput { display:none; }
+
+        .avatar-row { display:flex; gap:12px; justify-content:center; margin-top:16px; }
+        .avatar-opt { width:68px; height:68px; border-radius:50%; object-fit:cover; cursor:pointer; border:3px solid transparent; transition:all 0.3s; }
+        .avatar-opt:hover { transform:scale(1.08); border-color:#C9A96E; }
+        .avatar-opt.sel { border-color:#C9A96E; box-shadow:0 0 0 3px rgba(201,169,110,0.3); }
+
+        .prod-preview { background:#f6f6f6; border-radius:10px; padding:18px; text-align:center; }
+        .prod-preview img { max-width:100%; max-height:260px; border-radius:8px; box-shadow:0 4px 18px rgba(0,0,0,0.1); object-fit:cover; }
+        .prod-name { font-size:15px; margin-top:12px; color:#222; font-weight:500; }
+        .prod-price { color:#C9A96E; font-size:18px; font-weight:700; margin-top:4px; }
+        .prod-hint { font-size:12px; color:#999; margin-top:8px; }
+
+        .err-box { background:#fff3f3; border:1px solid #ffcdd2; border-radius:8px; padding:14px; margin-top:14px; font-size:13px; color:#c62828; display:none; }
+        .err-box.show { display:block; }
+
+        .proc-box { text-align:center; padding:20px; }
+        .proc-imgs { display:flex; justify-content:center; gap:20px; align-items:center; margin-bottom:24px; flex-wrap:wrap; }
+        .proc-wrap { position:relative; width:130px; height:170px; border-radius:10px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,0.12); flex-shrink:0; }
+        .proc-wrap img { width:100%; height:100%; object-fit:cover; }
+        .scan { position:absolute; top:0; left:0; width:100%; height:4px; background:linear-gradient(90deg,transparent,#C9A96E,transparent); box-shadow:0 0 12px #C9A96E; animation:scan 1.4s linear infinite; }
+        @keyframes scan { 0%{top:0} 100%{top:100%} }
+        .proc-arrow { font-size:26px; color:#C9A96E; animation:pulse 1s ease infinite; }
+        @keyframes pulse { 0%,100%{opacity:0.4;transform:scale(1)} 50%{opacity:1;transform:scale(1.15)} }
+        .prog-wrap { max-width:340px; margin:0 auto 14px; }
+        .prog-bar { height:7px; background:#eee; border-radius:4px; overflow:hidden; }
+        .prog-fill { height:100%; background:linear-gradient(90deg,#C9A96E,#e8c97a); width:0%; transition:width 0.5s ease; border-radius:4px; }
+        .proc-msg { font-size:15px; color:#333; margin-top:12px; min-height:24px; }
+        .proc-timer { font-size:12px; color:#999; margin-top:8px; }
+
+        .result-imgs { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; }
+        .res-wrap { position:relative; border-radius:10px; overflow:hidden; box-shadow:0 4px 18px rgba(0,0,0,0.1); }
+        .res-wrap img { width:100%; height:260px; object-fit:cover; display:block; }
+        .res-label { position:absolute; bottom:0; left:0; right:0; padding:10px; font-size:12px; text-transform:uppercase; letter-spacing:1px; color:white; text-align:center; }
+        .label-b { background:rgba(0,0,0,0.65); }
+        .label-a { background:#C9A96E; }
+        .res-actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:16px; }
+        .btn-loved { background:#C9A96E; color:white; border:none; padding:13px 22px; font-size:13px; text-transform:uppercase; letter-spacing:1px; cursor:pointer; transition:all 0.3s; border-radius:3px; display:flex; align-items:center; gap:8px; }
+        .btn-loved:hover { background:#b8985d; transform:translateY(-2px); }
+        .btn-retry { background:transparent; color:#444; border:2px solid #ddd; padding:11px 20px; font-size:13px; text-transform:uppercase; letter-spacing:1px; cursor:pointer; transition:all 0.3s; border-radius:3px; display:flex; align-items:center; gap:8px; }
+        .btn-retry:hover { border-color:#C9A96E; color:#C9A96E; }
+        .stars-row { padding:16px; background:#f9f9f9; border-radius:8px; text-align:center; }
+        .stars-label { font-size:13px; color:#777; margin-bottom:8px; }
+        .stars span { font-size:26px; color:#ddd; cursor:pointer; transition:color 0.2s; }
+        .stars span:hover,.stars span.on { color:#C9A96E; }
+
+        .cart-sidebar { position:fixed; top:0; right:-420px; width:400px; height:100%; background:white; box-shadow:-4px 0 28px rgba(0,0,0,0.1); z-index:1100; transition:right 0.4s ease; display:flex; flex-direction:column; }
+        .cart-sidebar.open { right:0; }
+        .cart-head { background:#1a1a1a; color:white; padding:20px; display:flex; justify-content:space-between; align-items:center; }
+        .cart-body { flex:1; overflow-y:auto; padding:20px; }
+        .cart-item { display:flex; gap:14px; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid #eee; align-items:center; }
+        .cart-item img { width:68px; height:84px; object-fit:cover; border-radius:6px; }
+        .ci-name { font-size:14px; margin-bottom:4px; }
+        .ci-price { color:#C9A96E; font-weight:700; font-size:13px; }
+        .cart-foot { padding:20px; border-top:1px solid #eee; background:#fafafa; }
+        .cart-total { display:flex; justify-content:space-between; font-size:17px; margin-bottom:14px; font-weight:500; }
+        .cart-total span:last-child { color:#C9A96E; }
+
+        .vto-banner { background:linear-gradient(135deg,#1a1a1a,#2d2d2d); color:white; padding:70px 5%; text-align:center; }
+        .vto-banner h2 { font-size:30px; font-weight:200; margin-bottom:14px; letter-spacing:2px; }
+        .vto-banner p { opacity:0.75; margin-bottom:28px; font-size:16px; }
+
+        .toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px); background:#1a1a1a; color:white; padding:13px 26px; border-radius:50px; opacity:0; transition:all 0.4s ease; z-index:3000; font-size:14px; white-space:nowrap; max-width:90vw; text-align:center; }
+        .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+        @media(max-width:768px){ .nav-menu{display:none} .hero h1{font-size:34px} .products-grid{grid-template-columns:repeat(2,1fr);gap:14px} .cart-sidebar{width:100%;right:-100%} .result-imgs{grid-template-columns:1fr} }
+    </style>
+</head>
+<body>
+
+<div class="api-setup" id="apiSetup">
+    <div class="api-box">
+        <div style="font-size:44px;margin-bottom:16px;">🔑</div>
+        <h2>Configure o Replicate</h2>
+        <p>Cole sua API Key do Replicate. Ela fica salva só no seu navegador.</p>
+        <input type="password" class="api-input" id="apiKeyInput" placeholder="r8_..."/>
+        <button class="btn-primary" style="width:100%;justify-content:center;" onclick="saveKey()">Entrar ✨</button>
+        <p class="api-note">Pegue sua key em <a href="https://replicate.com/account/api-tokens" target="_blank">replicate.com/account/api-tokens</a></p>
+    </div>
+</div>
+
+<div class="top-bar">🔥 Oferta do dia — 40% OFF em peças selecionadas</div>
+
+<header class="main-header">
+    <div class="logo">Ella <span>Moda</span></div>
+    <nav><ul class="nav-menu">
+        <li><a href="#">Novidades</a></li>
+        <li><a href="#">Masculino</a></li>
+        <li><a href="#">Feminino</a></li>
+        <li><a href="#">Destaques</a></li>
+    </ul></nav>
+    <div class="header-icons">
+        <button class="icon-btn">🔍</button>
+        <button class="icon-btn">👤</button>
+        <button class="icon-btn" onclick="toggleCart()">🛒<span class="cart-count" id="cartCount">0</span></button>
+    </div>
+</header>
+
+<section class="hero">
+    <div>
+        <h1>Vista-se com<br>confiança</h1>
+        <p>Experimente antes de comprar com nossa IA</p>
+        <button class="btn-primary" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'})">Experimentar agora ✨</button>
+    </div>
+</section>
+
+<section class="products-section" id="products">
+    <h2 class="section-title">Coleção Verão 2026</h2>
+    <div class="products-grid" id="productsGrid"></div>
+</section>
+
+<div class="vto-banner">
+    <h2>✨ Provador Virtual com IA Real</h2>
+    <p>Nossa IA coloca qualquer roupa em você antes de comprar.</p>
+    <button class="btn-primary" onclick="document.getElementById('products').scrollIntoView({behavior:'smooth'})">Escolher uma peça</button>
+</div>
+
+<div class="modal-overlay" id="vtoModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>✨ Provador Virtual — IDM-VTON</h2>
+            <button class="btn-close" onclick="closeVTO()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="vto-grid">
+                <div>
+                    <div class="vto-step active" id="step1">
+                        <div class="step-title"><span class="step-num">1</span> Envie sua foto</div>
+                        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+                            <img class="upload-preview" id="uploadPreview" src="" alt="">
+                            <div id="uploadPH">
+                                <div style="font-size:38px;margin-bottom:10px;">📷</div>
+                                <div style="color:#555;font-size:14px;margin-bottom:4px;">Clique para enviar sua foto</div>
+                                <div style="font-size:12px;color:#aaa;">Foto de corpo inteiro funciona melhor</div>
+                            </div>
+                        </div>
+                        <input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)">
+                        <div style="margin-top:16px;text-align:center;">
+                            <p style="font-size:13px;color:#777;margin-bottom:10px;">Ou escolha um modelo:</p>
+                            <div class="avatar-row">
+                                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=face" class="avatar-opt" onclick="selAvatar(this)" alt="M1">
+                                <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=face" class="avatar-opt" onclick="selAvatar(this)" alt="M2">
+                                <img src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200&h=200&fit=crop&crop=face" class="avatar-opt" onclick="selAvatar(this)" alt="M3">
+                            </div>
+                        </div>
+                        <div class="err-box" id="errBox"></div>
+                        <button class="btn-primary" style="width:100%;justify-content:center;margin-top:20px;" onclick="goProcess()">Experimentar com IA →</button>
+                    </div>
+
+                    <div class="vto-step" id="step2">
+                        <div class="step-title"><span class="step-num">2</span> IA processando...</div>
+                        <div class="proc-box">
+                            <div class="proc-imgs">
+                                <div class="proc-wrap"><img id="procUser" src="" alt=""><div class="scan"></div></div>
+                                <div class="proc-arrow">→</div>
+                                <div class="proc-wrap"><img id="procProd" src="" alt=""></div>
+                            </div>
+                            <div class="prog-wrap">
+                                <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+                            </div>
+                            <div class="proc-msg" id="procMsg">Enviando para o IDM-VTON...</div>
+                            <div class="proc-timer" id="procTimer">⏱️ Aguarde ~30-60 segundos</div>
+                        </div>
+                    </div>
+
+                    <div class="vto-step" id="step3">
+                        <div class="step-title"><span class="step-num" style="background:#4CAF50">✓</span> Resultado da IA</div>
+                        <div class="result-imgs">
+                            <div class="res-wrap"><img id="resBefore" src="" alt="Antes"><div class="res-label label-b">Antes</div></div>
+                            <div class="res-wrap"><img id="resAfter" src="" alt="Depois"><div class="res-label label-a">Depois ✨</div></div>
+                        </div>
+                        <div class="res-actions">
+                            <button class="btn-loved" onclick="addFromVTO()">❤️ Adorei! Adicionar ao carrinho</button>
+                            <button class="btn-retry" onclick="resetVTO()">🔄 Tentar outra roupa</button>
+                        </div>
+                        <div class="stars-row">
+                            <div class="stars-label">O que achou?</div>
+                            <div class="stars"><span onclick="rate(1)">★</span><span onclick="rate(2)">★</span><span onclick="rate(3)">★</span><span onclick="rate(4)">★</span><span onclick="rate(5)">★</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="prod-preview">
+                        <img id="modalProdImg" src="" alt="">
+                        <div class="prod-name" id="modalProdName"></div>
+                        <div class="prod-price" id="modalProdPrice"></div>
+                        <div class="prod-hint">Esta peça será aplicada na sua foto pela IA</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cart-sidebar" id="cartSidebar">
+    <div class="cart-head"><h3>🛒 Seu Carrinho</h3><button class="btn-close" onclick="toggleCart()">&times;</button></div>
+    <div class="cart-body" id="cartBody"></div>
+    <div class="cart-foot">
+        <div class="cart-total"><span>Total:</span><span id="cartTotal">R$ 0,00</span></div>
+        <button class="btn-primary" style="width:100%;justify-content:center;">Finalizar Compra</button>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PRODUCTS = [
+    {id:1,name:"Vestido Floral Rosa",price:189.90,image:"https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=600&fit=crop"},
+    {id:2,name:"Blusa de Seda Elegante",price:129.90,image:"https://images.unsplash.com/photo-1564257631407-4deb1f99d992?w=600&fit=crop"},
+    {id:3,name:"Calça Jeans Skinny",price:159.90,image:"https://images.unsplash.com/photo-1541099649105-f69ad21f3246?w=600&fit=crop"},
+    {id:4,name:"Vestido Midi Azul",price:199.90,image:"https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=600&fit=crop"},
+    {id:5,name:"Blazer Alfaiataria",price:249.90,image:"https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=600&fit=crop"},
+    {id:6,name:"Saia Midi Plissada",price:139.90,image:"https://images.unsplash.com/photo-1583496661160-fb5886a0ab1a?w=600&fit=crop"},
+    {id:7,name:"Vestido Longo Estampado",price:219.90,image:"https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=600&fit=crop"},
+    {id:8,name:"Top Cropped Tricô",price:89.90,image:"https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=600&fit=crop"},
+    {id:9,name:"Calça Wide Leg",price:179.90,image:"https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=600&fit=crop"},
+    {id:10,name:"Vestido Ombro a Ombro",price:229.90,image:"https://images.unsplash.com/photo-1502716119720-b23a93e5fe1b?w=600&fit=crop"},
+    {id:11,name:"Conjunto Linho Bege",price:289.90,image:"https://images.unsplash.com/photo-1548690312-e3b507d8c110?w=600&fit=crop"},
+    {id:12,name:"Camisa Social Branca",price:119.90,image:"https://images.unsplash.com/photo-1598033129183-c4f50c736f10?w=600&fit=crop"}
+];
+
+let cart=[], currentProd=null, userPhotoUrl=null, userPhotoB64=null, apiKey='';
+
+function saveKey() {
+    const k = document.getElementById('apiKeyInput').value.trim();
+    if (!k.startsWith('r8_')) { alert('API Key inválida. Deve começar com r8_'); return; }
+    apiKey = k;
+    localStorage.setItem('ella_rep_key', k);
+    document.getElementById('apiSetup').classList.add('hidden');
+    showToast('✅ Conectado ao Replicate!');
+}
+
+window.addEventListener('load', () => {
+    const saved = localStorage.getItem('ella_rep_key');
+    if (saved) { apiKey = saved; document.getElementById('apiSetup').classList.add('hidden'); }
+    document.getElementById('productsGrid').innerHTML = PRODUCTS.map(p=>`
+        <div class="product-card">
+            <img src="${p.image}" alt="${p.name}" class="product-image" loading="lazy">
+            <div class="product-info">
+                <div class="product-name">${p.name}</div>
+                <div class="product-price">R$ ${fmt(p.price)}</div>
+                <div class="product-buttons">
+                    <button class="btn-cart" onclick="addToCart(${p.id})">Adicionar</button>
+                    <button class="btn-tryon" onclick="openVTO(${p.id})">✨ Experimentar</button>
+                </div>
+            </div>
+        </div>`).join('');
+    updateCart();
+});
+
+function fmt(n){return n.toFixed(2).replace('.',',');}
+
+function openVTO(id) {
+    currentProd = PRODUCTS.find(p=>p.id===id);
+    document.getElementById('modalProdImg').src = currentProd.image;
+    document.getElementById('modalProdName').textContent = currentProd.name;
+    document.getElementById('modalProdPrice').textContent = 'R$ '+fmt(currentProd.price);
+    document.getElementById('vtoModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+    resetVTO();
+}
+
+function closeVTO() { document.getElementById('vtoModal').classList.remove('active'); document.body.style.overflow=''; }
+
+function showStep(id) { document.querySelectorAll('.vto-step').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+function resetVTO() {
+    showStep('step1');
+    userPhotoUrl=null; userPhotoB64=null;
+    document.querySelectorAll('.avatar-opt').forEach(a=>a.classList.remove('sel'));
+    document.getElementById('uploadPreview').classList.remove('show');
+    document.getElementById('uploadPH').style.display='';
+    document.getElementById('uploadZone').classList.remove('filled');
+    document.getElementById('progFill').style.width='0%';
+    document.getElementById('errBox').classList.remove('show');
+}
+
+function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { userPhotoB64=ev.target.result.split(',')[1]; userPhotoUrl=ev.target.result; setPreview(userPhotoUrl); };
+    reader.readAsDataURL(file);
+}
+
+function setPreview(src) {
+    const p = document.getElementById('uploadPreview');
+    p.src=src; p.classList.add('show');
+    document.getElementById('uploadPH').style.display='none';
+    document.getElementById('uploadZone').classList.add('filled');
+}
+
+function selAvatar(img) {
+    document.querySelectorAll('.avatar-opt').forEach(a=>a.classList.remove('sel'));
+    img.classList.add('sel');
+    userPhotoUrl=img.src;
+    setPreview(img.src);
+    fetch(img.src).then(r=>r.blob()).then(blob=>{
+        const r=new FileReader();
+        r.onload=e=>{userPhotoB64=e.target.result.split(',')[1];};
+        r.readAsDataURL(blob);
+    }).catch(()=>{userPhotoB64=null;});
+}
+
+async function toB64(url) {
+    try {
+        const r=await fetch(url);
+        const b=await r.blob();
+        return new Promise(res=>{const fr=new FileReader();fr.onload=e=>res(e.target.result.split(',')[1]);fr.readAsDataURL(b);});
+    } catch{return null;}
+}
+
+async function goProcess() {
+    if (!userPhotoUrl) {
+        const e=document.getElementById('errBox');
+        e.textContent='⚠️ Envie uma foto ou escolha um modelo antes de continuar.';
+        e.classList.add('show'); return;
+    }
+    document.getElementById('errBox').classList.remove('show');
+    document.getElementById('procUser').src=userPhotoUrl;
+    document.getElementById('procProd').src=currentProd.image;
+    showStep('step2');
+    await runVTO();
+}
+
+async function runVTO() {
+    const msgs=["Enviando para o IDM-VTON...","Analisando corpo e posição...","Aplicando a roupa com IA...","Finalizando detalhes realistas..."];
+    const fill=document.getElementById('progFill');
+    const msg=document.getElementById('procMsg');
+    const timer=document.getElementById('procTimer');
+    let p=0, secs=0;
+
+    const tick=setInterval(()=>{
+        p=Math.min(p+0.6,88);
+        fill.style.width=p+'%';
+        const idx=p<22?0:p<44?1:p<66?2:3;
+        msg.textContent=msgs[idx];
+        secs++;
+        timer.textContent=`⏱️ ${secs}s — aguarde ~30-60s`;
+    },1000);
+
+    try {
+        if (!userPhotoB64) userPhotoB64 = await toB64(userPhotoUrl);
+        const prodB64 = await toB64(currentProd.image);
+        if (!userPhotoB64 || !prodB64) throw new Error('Erro ao carregar imagens');
+
+        // Call our Vercel proxy API
+        const resp = await fetch('/api/vton', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+                apiKey,
+                human_img:`data:image/jpeg;base64,${userPhotoB64}`,
+                garm_img:`data:image/jpeg;base64,${prodB64}`,
+                garment_des:currentProd.name
+            })
+        });
+
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || 'Erro no servidor');
+
+        clearInterval(tick);
+        fill.style.width='100%';
+
+        setTimeout(()=>{
+            document.getElementById('resBefore').src=userPhotoUrl;
+            document.getElementById('resAfter').src=data.output;
+            showStep('step3');
+            confetti();
+        },400);
+
+    } catch(err) {
+        clearInterval(tick);
+        fill.style.width='100%';
+        msg.textContent='⚠️ Erro: '+err.message;
+        setTimeout(()=>{
+            document.getElementById('resBefore').src=userPhotoUrl;
+            document.getElementById('resAfter').src=currentProd.image;
+            showStep('step3');
+            showToast('⚠️ Modo demo — erro: '+err.message);
+        },600);
+    }
+}
+
+function confetti() {
+    const colors=['#C9A96E','#FFD700','#FFA500','#fff','#e8d5b7'];
+    if (!document.getElementById('confCSS')) {
+        const s=document.createElement('style');s.id='confCSS';
+        s.textContent='@keyframes cf{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}';
+        document.head.appendChild(s);
+    }
+    for(let i=0;i<55;i++) setTimeout(()=>{
+        const c=document.createElement('div');const sz=Math.random()*8+5;
+        c.style.cssText=`position:fixed;z-index:9998;pointer-events:none;border-radius:2px;left:${Math.random()*100}vw;top:-20px;width:${sz}px;height:${sz}px;background:${colors[Math.floor(Math.random()*colors.length)]};animation:cf ${Math.random()*2+2}s ease-out forwards;`;
+        document.body.appendChild(c);setTimeout(()=>c.remove(),5000);
+    },i*45);
+}
+
+function rate(n){document.querySelectorAll('.stars span').forEach((s,i)=>s.classList.toggle('on',i<n));showToast('⭐ Obrigado!');}
+function addToCart(id){const p=PRODUCTS.find(x=>x.id===id);const ex=cart.find(x=>x.id===id);ex?ex.qty++:cart.push({...p,qty:1});updateCart();showToast('✓ '+p.name+' adicionado!');}
+function addFromVTO(){if(currentProd){addToCart(currentProd.id);closeVTO();}}
+function removeFromCart(id){cart=cart.filter(x=>x.id!==id);updateCart();}
+function updateCart(){
+    const total=cart.reduce((s,i)=>s+i.qty,0);
+    const price=cart.reduce((s,i)=>s+i.price*i.qty,0);
+    document.getElementById('cartCount').textContent=total;
+    document.getElementById('cartTotal').textContent='R$ '+fmt(price);
+    document.getElementById('cartBody').innerHTML=cart.length===0?'<p style="text-align:center;color:#bbb;padding:40px">Carrinho vazio</p>':cart.map(i=>`<div class="cart-item"><img src="${i.image}" alt="${i.name}"><div style="flex:1"><div class="ci-name">${i.name}</div><div class="ci-price">R$ ${fmt(i.price)} × ${i.qty}</div></div><button onclick="removeFromCart(${i.id})" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:18px;">🗑️</button></div>`).join('');
+}
+function toggleCart(){document.getElementById('cartSidebar').classList.toggle('open');}
+function showToast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+document.getElementById('vtoModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeVTO();});
+</script>
+</body>
+</html>
