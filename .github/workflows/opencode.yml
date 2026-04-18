@@ -5,14 +5,10 @@ on:
     types: [created]
   issues:
     types: [opened]
-  pull_request_review_comment:
-    types: [created]
 
 jobs:
   opencode:
-    if: |
-      contains(github.event.comment.body, '/oc') || 
-      contains(github.event.issue.body, '/oc')
+    if: contains(github.event.comment.body, '/oc') || contains(github.event.issue.body, '/oc')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
